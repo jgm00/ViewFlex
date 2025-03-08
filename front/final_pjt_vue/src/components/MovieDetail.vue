@@ -156,6 +156,12 @@ const handleLike = async () => {
     }
     isLoading.value = true
     await store.Like(route.params.movieId)
+
+    await axios.post(`${store.API_URL}/movies/track-activity/`, {
+      movie_id: route.params.movieId,
+      activity_type: 'like'
+    })
+
   } catch (error) {
     console.error(error)
   } finally {

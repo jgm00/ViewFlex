@@ -5,7 +5,29 @@
     </div>
     <div v-else>
       <div v-if="boxOfficeMovies.length" class="recommended-section">
-        <h2 class="section-title">박스오피스 TOP 10</h2>
+        <div class="trending-header">
+          <h2 class="section-title">실시간 인기 영화 TOP 10</h2>
+          <div class="timeframe-selector">
+            <button 
+              :class="['timeframe-btn', timeframe === 'daily' ? 'active' : '']" 
+              @click="changeTimeframe('daily')"
+            >
+              오늘
+            </button>
+            <button 
+              :class="['timeframe-btn', timeframe === 'weekly' ? 'active' : '']" 
+              @click="changeTimeframe('weekly')"
+            >
+              이번 주
+            </button>
+            <button 
+              :class="['timeframe-btn', timeframe === 'all' ? 'active' : '']" 
+              @click="changeTimeframe('all')"
+            >
+              전체
+            </button>
+          </div>
+        </div>
         <div class="movie-carousel">
           <button class="nav-button prev" @click="scrollCarousel('boxOffice', -1)">❮</button>
           <div class="movie-slider" ref="boxOfficeSliderRef">
@@ -15,10 +37,13 @@
                    :class="['movie-rank-wrapper', {'rank-ten': index === 9}]"
               >
                 <div class="rank-number">{{ index + 1 }}</div>
-                <div class="movie-card-container">
+                <div class="movie-card-container" @click="trackMovieView(movie.id)">
                   <SimpleMovieCard 
                     :movie="movie"
                   />
+                  <div v-if="movie.trending_score" class="trending-badge">
+                    인기 지수: {{ movie.trending_score }}
+                  </div>
                 </div>
               </div>
             </template>
@@ -36,6 +61,7 @@
               v-for="movie in genreMovies" 
               :key="movie.id" 
               :movie="movie"
+              @click="trackMovieView(movie.id)"
             />
           </div>
           <button class="nav-button next" @click="scrollCarousel('genre', 1)">❯</button>
@@ -51,6 +77,7 @@
               v-for="movie in followingMovies" 
               :key="movie.id" 
               :movie="movie"
+              @click="trackMovieView(movie.id)"
             />
           </div>
           <button class="nav-button next" @click="scrollCarousel('following', 1)">❯</button>
@@ -66,6 +93,7 @@
               v-for="movie in actorMovies" 
               :key="movie.id" 
               :movie="movie"
+              @click="trackMovieView(movie.id)"
             />
           </div>
           <button class="nav-button next" @click="scrollCarousel('actor', 1)">❯</button>
@@ -74,7 +102,6 @@
 
       <div v-if="releaseDateMovies.length" class="recommended-section">
         <h2 v-if="userStore.isLogin" class="section-title">당신이 사랑했던 그 시절의 영화들</h2>
-        <!-- <h2 class="section-title">당신이 사랑했던 그 시절의 영화들</h2> -->
         <div class="movie-carousel">
           <button class="nav-button prev" @click="scrollCarousel('releaseDate', -1)">❮</button>
           <div class="movie-slider" ref="releaseDateSliderRef">
@@ -82,6 +109,7 @@
               v-for="movie in releaseDateMovies" 
               :key="movie.id" 
               :movie="movie"
+              @click="trackMovieView(movie.id)"
             />
           </div>
           <button class="nav-button next" @click="scrollCarousel('releaseDate', 1)">❯</button>
@@ -98,6 +126,7 @@
               v-for="movie in userStore.aiRecommendations" 
               :key="movie.id" 
               :movie="movie"
+              @click="trackMovieView(movie.id)"
             />
           </div>
           <button class="nav-button next" @click="scrollCarousel('ai', 1)">❯</button>
@@ -108,7 +137,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import axios from 'axios'
 import SimpleMovieCard from '@/components/SimpleMovieCard.vue'
 import { useMovieStore } from '@/stores/movie'
@@ -130,6 +159,9 @@ const releaseDateMovies = ref([])
 const releaseDateSliderRef = ref(null)
 const aiSliderRef = ref(null)
 
+// 실시간 인기 영화 관련 상태
+const timeframe = ref('daily')  // 기본값: 일간
+
 // 영화 배열을 랜덤하게 섞는 함수
 const shuffleArray = (array) => {
   for (let i = array.length - 1; i > 0; i--) {
@@ -137,6 +169,26 @@ const shuffleArray = (array) => {
     [array[i], array[j]] = [array[j], array[i]];
   }
   return array;
+}
+
+// 시간 범위 변경
+const changeTimeframe = (newTimeframe) => {
+  timeframe.value = newTimeframe
+  fetchData() // 데이터 다시 로드
+}
+
+// 영화 클릭 시 활동 추적
+const trackMovieView = async (movieId) => {
+  try {
+    await axios.post('http://127.0.0.1:8000/movies/track-activity/', {
+      movie_id: movieId,
+      activity_type: 'view'
+    })
+    router.push(`/movie/${movieId}`) // 영화 상세 페이지로 이동
+  } catch (error) {
+    console.error('활동 추적 실패:', error)
+    router.push(`/movie/${movieId}`) // 에러가 있어도 상세 페이지로 이동
+  }
 }
 
 const scrollCarousel = (type, direction) => {
@@ -196,15 +248,21 @@ const fetchData = async () => {
     isLoading.value = true
     const headers = userStore.token ? { Authorization: `Token ${userStore.token}` } : {}
 
-    const [boxOfficeResponse, genreResponse, followingResponse, actorResponse, releaseDateResponse] = await Promise.all([
-      axios.get('http://127.0.0.1:8000/movies/recommended/box_office/', { headers }),
+    // 박스오피스 API 대신 trending API 사용
+    const [trendingResponse, genreResponse, followingResponse, actorResponse, releaseDateResponse] = await Promise.all([
+      axios.get('http://127.0.0.1:8000/movies/trending/', { 
+        params: { timeframe: timeframe.value }, 
+        headers 
+      }),
       axios.get('http://127.0.0.1:8000/movies/recommended/genre/', { headers }),
       axios.get('http://127.0.0.1:8000/movies/recommended/following/', { headers }),
       axios.get('http://127.0.0.1:8000/movies/recommended/reviewed_actors/', { headers }),
       axios.get('http://127.0.0.1:8000/movies/recommended/release_date/', { headers })
     ])
 
-    boxOfficeMovies.value = boxOfficeResponse.data
+    // 응답 구조가 다르므로 결과 처리 방식 변경
+    boxOfficeMovies.value = trendingResponse.data.results || []
+
     if (genreResponse.data.top_genres) {
       genreMovies.value = shuffleArray([...genreResponse.data.movies])
       topGenres.value = genreResponse.data.top_genres
@@ -218,8 +276,15 @@ const fetchData = async () => {
     releaseDateMovies.value = shuffleArray([...releaseDateResponse.data])
   } catch (error) {
     console.error('데이터 로딩 실패:', error)
-    // 401 에러 리다이렉트 제거
-    boxOfficeMovies.value = []
+    // 에러 발생 시 폴백으로 기존 박스오피스 API 사용
+    try {
+      const boxOfficeResponse = await axios.get('http://127.0.0.1:8000/movies/recommended/box_office/')
+      boxOfficeMovies.value = boxOfficeResponse.data
+    } catch (boxOfficeError) {
+      console.error('박스오피스 데이터 로딩 실패:', boxOfficeError)
+      boxOfficeMovies.value = []
+    }
+    
     genreMovies.value = []
     followingMovies.value = []
     topGenres.value = []
@@ -238,7 +303,7 @@ onMounted(async () => {
     userStore.loadRecommendedMovies()
     console.log('Loaded AI recommendations:', userStore.aiRecommendations)
     
-    // 다른 데이터 로드
+    // 데이터 로드
     await fetchData()
   } catch (error) {
     console.error('데이터 로딩 실패:', error)
@@ -536,6 +601,7 @@ onMounted(async () => {
   z-index: 2;
   width: 100%;
   margin-left: 0;
+  cursor: pointer;
 }
 
 @media (max-width: 768px) {
@@ -577,29 +643,6 @@ onMounted(async () => {
   flex: 0 0 200px;
   min-width: 200px;
 }
-
-/* 숫자 스타일 수정 */
-/* .recommended-section:first-child .rank-number {
-  position: absolute;
-  font-size: 20rem;
-  left: -120px;
-  transform: translateX(10%);
-  color: #000000;
-  z-index: 1;
-  font-family: 'Oswald', 'Impact', 'Franklin Gothic', sans-serif;
-  font-weight: 900;
-  letter-spacing: -15px;
-  -webkit-text-outline-stroke: 20px #666666;
-} */
-
-/* 10번 숫자 특별 처리 */
-/* .recommended-section:first-child .movie-rank-wrapper:nth-child(10) .rank-number {
-  font-size: 17rem;
-  left: -150px;
-  letter-spacing: -10px;
-  transform: translateX(-8%);
-  -webkit-text-stroke: 2px #666666;
-} */
 
 .recommended-section:first-child .rank-number {
   position: absolute;
@@ -723,5 +766,68 @@ onMounted(async () => {
   border-radius: 8px;
   font-size: 0.9rem;
   color: #ffffff;
+}
+
+/* 추가된 새 스타일 */
+.trending-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.timeframe-selector {
+  display: flex;
+  gap: 10px;
+}
+
+.timeframe-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.timeframe-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.timeframe-btn.active {
+  background: rgba(79, 70, 229, 0.6);
+  color: white;
+}
+
+.trending-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(79, 70, 229, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  z-index: 3;
+}
+
+@media (max-width: 768px) {
+  .trending-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .timeframe-selector {
+   width: 100%;
+   justify-content: space-between;
+ }
+ 
+ .timeframe-btn {
+   padding: 4px 10px;
+   font-size: 0.8rem;
+ }
 }
 </style>

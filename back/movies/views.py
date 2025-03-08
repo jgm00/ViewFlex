@@ -14,6 +14,94 @@ from collections import Counter
 import random
 from datetime import datetime
 
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework import status
+from .trending import TrendingMoviesService
+
+"""실시간 인기 영화 TOP 10 조회"""
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def trending_movies(request):
+    try:
+        # 시간 범위 (all, daily, weekly)
+        timeframe = request.GET.get('timeframe', 'daily')
+
+        limit = int(request.GET.get('limit', 10))
+        
+        trending_data = TrendingMoviesService.get_trending_movies(
+            timeframe=timeframe, 
+            limit=limit
+        )
+        
+        return Response({
+            'timeframe': timeframe,
+            'results': trending_data
+        })
+    
+    except Exception as e:
+        return Response(
+            {"error": f"인기 영화를 가져오는 중 오류가 발생했습니다: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+"""영화 관련 사용자 활동 트래킹킹"""
+@api_view(['POST'])
+def track_movie_activity(request):
+    try:
+        movie_id = request.data.get('movie_id')
+        activity_type = request.data.get('activity_type')
+        
+        if not movie_id or not activity_type:
+            return Response(
+                {"error": "movie_id와 activity_type이 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 사용자 ID (로그인한 경우)
+        user_id = request.user.id if request.user.is_authenticated else None
+        
+        # 활동 추적
+        success = TrendingMoviesService.track_movie_activity(
+            movie_id=movie_id,
+            activity_type=activity_type,
+            user_id=user_id
+        )
+        
+        if success:
+            return Response({"status": "success"})
+        else:
+            return Response(
+                {"error": "지원되지 않는 활동 유형입니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    except Exception as e:
+        return Response(
+            {"error": f"활동 추적 중 오류가 발생했습니다: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+"""랭킹킹 데이터를 초기화"""
+@api_view(['POST'])
+def reset_trending(request):
+    try:
+        timeframe = request.data.get('timeframe')
+        
+        TrendingMoviesService.reset_trending_data(timeframe)
+        
+        return Response({
+            "status": "success",
+            "message": "랭킹 데이터가 초기화되었습니다."
+        })
+    
+    except Exception as e:
+        return Response(
+            {"error": f"데이터 초기화 중 오류가 발생했습니다: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 RECOMMENDATIONS_COUNT = 21  # 추천 영화 개수
 PLAYING_MOVIES_COUNT = 3    # 상영 중인 영화 개수
 BOX_OFFICE_TOP = 10         # 박스오피스 상위 영화 개수

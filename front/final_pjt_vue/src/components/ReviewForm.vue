@@ -93,22 +93,50 @@ const submitReview = () => {
   }
 
   axios({
-    method: 'post',
-    url: `${store.API_URL}/movies/${props.movieId}/reviews/`,
-    data: {
-      rating: (Math.round(rating.value * 2) / 2).toFixed(1),
-      content: reviewContent.value,
-      movie: props.movieId
-    },
-    headers: {
-      Authorization: `Token ${store.token}`
-    }
-  }).then(() => {
-    rating.value = 0
-    reviewContent.value = ''
-    alert('리뷰가 등록되었습니다.')
-    store.getReview(props.movieId)
-  }).catch((err) => {
+  method: 'post',
+  url: `${store.API_URL}/movies/${props.movieId}/reviews/`,
+  data: {
+    rating: (Math.round(rating.value * 2) / 2).toFixed(1),
+    content: reviewContent.value,
+    movie: props.movieId
+  },
+  headers: {
+    Authorization: `Token ${store.token}`
+  }
+}).then(async (response) => {
+
+  const submittedRating = parseFloat(rating.value);
+  
+
+  let ratingType;
+  if (submittedRating >= 3.5) {
+    ratingType = 'rating_high';
+  } else if (submittedRating >= 1.5) {
+    ratingType = 'rating_mid';
+  } else {
+    ratingType = 'rating_low';
+  }
+  
+  console.log("활동 추적 - 평점:", submittedRating, "유형:", ratingType); // 디버깅용
+  
+
+  await axios.post(`${store.API_URL}/movies/track-activity/`, {
+    movie_id: props.movieId,
+    activity_type: ratingType
+  });
+  
+
+  await axios.post(`${store.API_URL}/movies/track-activity/`, {
+    movie_id: props.movieId,
+    activity_type: 'review'
+  });
+  
+
+  rating.value = 0;
+  reviewContent.value = '';
+  alert('리뷰가 등록되었습니다.');
+  store.getReview(props.movieId);
+}).catch((err) => {
     if (err.response?.status === 401) {
       alert('로그인이 필요하거나 세션이 만료되었습니다.')
     } else {
