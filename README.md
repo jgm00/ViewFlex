@@ -27,7 +27,7 @@
 
 ## 시작하기
 
-* **서비스 URL**: [https://beamish-kleicha-ee462c.netlify.app](https://beamish-kleicha-ee462c.netlify.app)
+* **서비스 URL**: [https://beamish-kleicha-ee462.netlify.app](https://beamish-kleicha-ee462.netlify.app)
 * **배포**: Front — *Netlify*, Back — *PythonAnywhere*
 
 ---
