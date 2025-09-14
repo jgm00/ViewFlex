@@ -140,7 +140,7 @@
 
 ## ERD (Entity Relationship Diagram)
 
-![ERD](README_img/erd.png)
+![ERD](README_img/ERD.png)
 
 
 ## 팀원
