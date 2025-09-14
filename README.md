@@ -85,7 +85,7 @@
 | 극장/지도 | 시리즈 |
 |-----------|--------|
 | <img src="README_img/cinema.png" width="300"/> | <img src="README_img/subPage.png" width="300"/> |
-| <img src="README_img/kakaomap.png" width="300"/> | <img src="README_img/subpage2.png" width="300"/> |
+| <img src="README_img/kakaomap.png" width="300"/> | <img src="README_img/subPage2.png" width="300"/> |
 
 | 추천 | 마이페이지 |
 |------|------------|
@@ -140,7 +140,7 @@
 
 ## ERD (Entity Relationship Diagram)
 
-![ERD](README_img/ERD.png)
+![ERD](README_img/erd.png)
 
 
 ## 팀원
